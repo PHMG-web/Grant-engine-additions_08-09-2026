@@ -41,9 +41,15 @@ class VariableMapper:
     # -------------------------
 
     def _map_nofo(self, context):
-        return {
-            "NOFO_Sections": context.nofo.get("sections", {})
+        sections = context.nofo.get("sections", {})
+        # Expose all extracted fields in NOFOData directly as top-level template variables
+        res = {
+            "NOFO_Sections": sections
         }
+        if isinstance(sections, dict):
+            for k, v in sections.items():
+                res[k] = v
+        return res
 
     def _map_org_profile(self, context):
         return {

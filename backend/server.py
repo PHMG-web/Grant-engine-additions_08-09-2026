@@ -132,6 +132,15 @@ async def parse_pdf(file: UploadFile = File(...)):
                 program_purpose="To expand access to high-quality healthcare and primary care services in underserved rural areas.",
                 application_requirements="Completed SF-424, Project Narrative, Budget Justification, Staffing Plan, and Letters of Support.",
                 review_criteria="Need (20 pts), Response (30 pts), Evaluative Plan (15 pts), Impact (20 pts), Budget (15 pts).",
+                questions_deadline="February 15, 2026",
+                period_of_performance="5 years (60 months)",
+                set_aside_category="Total Small Business",
+                naics_code="541511",
+                contract_type="Firm-Fixed-Price / Cooperative Agreement",
+                place_of_performance="Remote / Washington, DC",
+                key_personnel_requirements="Project Manager (PMP Certified), Principal Investigator, Lead Developer",
+                points_of_contact="Jane Doe (grants_officer@agency.gov, 202-555-0199)",
+                uei_sam_required="Yes",
                 raw_text=text
             )
             

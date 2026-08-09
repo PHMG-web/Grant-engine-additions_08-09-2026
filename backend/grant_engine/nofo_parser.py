@@ -23,6 +23,15 @@ class NOFOData(BaseModel):
     program_purpose: Optional[str] = None
     application_requirements: Optional[str] = None
     review_criteria: Optional[str] = None
+    questions_deadline: Optional[str] = None
+    period_of_performance: Optional[str] = None
+    set_aside_category: Optional[str] = None
+    naics_code: Optional[str] = None
+    contract_type: Optional[str] = None
+    place_of_performance: Optional[str] = None
+    key_personnel_requirements: Optional[str] = None
+    points_of_contact: Optional[str] = None
+    uei_sam_required: Optional[str] = None
     raw_text: Optional[str] = None
 
 # ---------------------------
@@ -45,7 +54,7 @@ def get_openai_client():
 
 SYSTEM_PROMPT = """
 You are PHMEG’s NOFO parsing engine. Your job is to read long federal grant
-announcements and extract structured, machine‑readable data.
+announcements and contracting solicitations and extract structured, machine‑readable data.
 
 Return ONLY valid JSON. No commentary, no explanation.
 
@@ -63,6 +72,15 @@ Extract the following fields:
 - program_purpose
 - application_requirements
 - review_criteria
+- questions_deadline (The deadline to submit questions/clarifications to the grants/contracting officer)
+- period_of_performance (The performance duration, e.g., 5 years or Base year + Option years)
+- set_aside_category (For contracting RFPs: Total Small Business, 8(a), HubZone, SDVOSB, or Unrestricted)
+- naics_code (North American Industry Classification System code, e.g., 541511)
+- contract_type (Contract vehicle, e.g., Fixed Price, CPFF, Time & Materials, Cooperative Agreement)
+- place_of_performance (Physical/remote geographic work location requirements)
+- key_personnel_requirements (Required personnel roles and credentials specified in solicitation)
+- points_of_contact (Grants management or Contracting officers contact details: name, email, phone)
+- uei_sam_required (Is active SAM.gov/Unique Entity Identifier registration mandatory for submission: Yes/No/Null)
 
 If a field is missing, return null.
 If a number is not explicitly stated, return null.
