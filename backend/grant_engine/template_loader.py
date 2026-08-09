@@ -17,6 +17,7 @@ class TemplateLoader:
         """
         Safely reads manifest.json and performs strict schema validation.
         """
+        manifest_data = {}
         try:
             if not os.path.exists(self.manifest_path):
                 raise FileNotFoundError(f"manifest.json not found in templates directory '{self.templates_dir}'")

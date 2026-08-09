@@ -24,17 +24,41 @@ class GrantScorer:
     def score_eligibility(self, client: ClientProfile, nofo: Any) -> Dict[str, Any]:
         """
         Calculates alignment scoring and extracts blockers/disqualification indicators.
+        Splits execution into distinct validation checkers to reduce function complexity.
         """
         score = 100
         breakdown = []
         disqualifications = []
 
-        # ------------------------------------------
-        # 1. SAM.gov & UEI CHECK (20 Points - CRITICAL)
-        # ------------------------------------------
+        # 1. Run SAM & UEI check
+        score, disqualifications, breakdown = self._check_sam_and_uei(client, nofo, score, disqualifications, breakdown)
+
+        # 2. Run Organization Type check
+        score, disqualifications, breakdown = self._check_org_type(client, nofo, score, disqualifications, breakdown)
+
+        # 3. Run Budget envelope check
+        score, disqualifications, breakdown = self._check_budget_envelope(client, nofo, score, disqualifications, breakdown)
+
+        # 4. Run Cost-Sharing check
+        score, disqualifications, breakdown = self._check_cost_sharing(client, nofo, score, disqualifications, breakdown)
+
+        # 5. Run Key Personnel staffing check
+        score, disqualifications, breakdown = self._check_key_personnel(client, nofo, score, disqualifications, breakdown)
+
+        # Bound score minimum to 0
+        final_score = max(0, score)
+
+        return {
+            "is_eligible": len(disqualifications) == 0,
+            "score": final_score,
+            "breakdown": breakdown,
+            "disqualifications": disqualifications
+        }
+
+    def _check_sam_and_uei(self, client: ClientProfile, nofo: Any, score: int, disqualifications: List[str], breakdown: List[str]):
+        """Helper to score and check SAM.gov & UEI status."""
         sam_required = nofo.uei_sam_required if hasattr(nofo, 'uei_sam_required') else None
         
-        # If SAM.gov registration is explicitly stated as required
         if sam_required and str(sam_required).lower() in ["yes", "true", "required"]:
             if not client.has_active_sam_registration:
                 score -= 20
@@ -47,22 +71,21 @@ class GrantScorer:
             else:
                 breakdown.append("SAM.gov & UEI Status: 20/20 pts (Fully Compliant)")
         else:
-            # Standard contracting baseline verification
             if not client.has_active_sam_registration:
                 score -= 10
                 breakdown.append("SAM.gov Registration: 10/20 pts (Inactive SAM registration is a major risk for contracting)")
             else:
                 breakdown.append("SAM.gov & UEI Status: 20/20 pts (Fully Compliant)")
+                
+        return score, disqualifications, breakdown
 
-        # ------------------------------------------
-        # 2. ORGANIZATION TYPE COMPLIANCE (30 Points)
-        # ------------------------------------------
+    def _check_org_type(self, client: ClientProfile, nofo: Any, score: int, disqualifications: List[str], breakdown: List[str]):
+        """Helper to score and check organization type compliance."""
         eligibility_text = nofo.eligibility if hasattr(nofo, 'eligibility') else ""
         if eligibility_text:
             elig_text_lower = eligibility_text.lower()
             client_org_lower = client.organization_type.lower()
             
-            # Simple keyword cross-checking rules
             is_nonprofit_grant = "nonprofit" in elig_text_lower or "501" in elig_text_lower
             is_small_biz_setaside = "small business" in elig_text_lower or "8(a)" in elig_text_lower or "set-aside" in elig_text_lower
 
@@ -81,10 +104,11 @@ class GrantScorer:
                 breakdown.append("Organization Type Eligibility: 30/30 pts (Matched successfully)")
         else:
             breakdown.append("Organization Type Eligibility: 30/30 pts (Matched successfully - open eligibility)")
+            
+        return score, disqualifications, breakdown
 
-        # ------------------------------------------
-        # 3. BUDGET ENVELOPE VERIFICATION (20 Points)
-        # ------------------------------------------
+    def _check_budget_envelope(self, client: ClientProfile, nofo: Any, score: int, disqualifications: List[str], breakdown: List[str]):
+        """Helper to verify requested budget fits ceiling and floor envelopes."""
         ceiling_str = nofo.award_ceiling if hasattr(nofo, 'award_ceiling') else None
         floor_str = nofo.award_floor if hasattr(nofo, 'award_floor') else None
 
@@ -110,15 +134,16 @@ class GrantScorer:
             if budget_errors:
                 score -= 15
                 disqualifications.extend(budget_errors)
-                breakdown.append(f"Budget Envelope Verification: 5/20 pts (Out of boundary limits)")
+                breakdown.append("Budget Envelope Verification: 5/20 pts (Out of boundary limits)")
             else:
                 breakdown.append("Budget Envelope Verification: 20/20 pts (Fully Compliant)")
         else:
             breakdown.append("Budget Envelope Verification: 20/20 pts (Passed - no budget requested yet)")
+            
+        return score, disqualifications, breakdown
 
-        # ------------------------------------------
-        # 4. COST SHARING & MATCHING (15 Points)
-        # ------------------------------------------
+    def _check_cost_sharing(self, client: ClientProfile, nofo: Any, score: int, disqualifications: List[str], breakdown: List[str]):
+        """Helper to verify cost sharing matching funds availability."""
         sharing_text = nofo.cost_sharing if hasattr(nofo, 'cost_sharing') else ""
         sharing_required = False
         if sharing_text:
@@ -136,23 +161,16 @@ class GrantScorer:
                 breakdown.append("Cost Sharing Alignment: 15/15 pts (Cost-share matched)")
         else:
             breakdown.append("Cost Sharing Alignment: 15/15 pts (Compliant - Cost-share not required)")
+            
+        return score, disqualifications, breakdown
 
-        # ------------------------------------------
-        # 5. KEY PERSONNEL & STAFFING (15 Points)
-        # ------------------------------------------
+    def _check_key_personnel(self, client: ClientProfile, nofo: Any, score: int, disqualifications: List[str], breakdown: List[str]):
+        """Helper to check staffing compliance."""
         if not client.has_required_key_personnel:
             score -= 10
             disqualifications.append("Proposal lacks the key personnel credentials mandated in the solicitation.")
             breakdown.append("Key Personnel Alignment: 5/15 pts (Staffing criteria unsatisfied)")
         else:
             breakdown.append("Key Personnel Alignment: 15/15 pts (Fully Staffed & Compliant)")
-
-        # Bound score minimum to 0
-        final_score = max(0, score)
-
-        return {
-            "is_eligible": len(disqualifications) == 0,
-            "score": final_score,
-            "breakdown": breakdown,
-            "disqualifications": disqualifications
-        }
+            
+        return score, disqualifications, breakdown

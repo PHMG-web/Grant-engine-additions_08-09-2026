@@ -1,7 +1,7 @@
 import re
 import pdfplumber
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
 from fastapi import UploadFile
 from openai import OpenAI
@@ -41,15 +41,17 @@ _client = None
 
 def get_openai_client():
     global _client
-    if _client is None:
-        api_key = os.getenv("AZURE_OPENAI_KEY") or "mock-key-for-import-safety"
-        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT") or "https://mock.azure.openai.com"
-        model = os.getenv("AZURE_OPENAI_MODEL") or "mock-model"
-        _client = OpenAI(
-            api_key=api_key,
-            base_url=f"{endpoint}/openai/deployments/{model}",
-            default_headers={"api-key": api_key}
-        )
+    if _client is not None:
+        return _client
+
+    api_key = os.getenv("AZURE_OPENAI_KEY") or "mock-key-for-import-safety"
+    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT") or "https://mock.azure.openai.com"
+    model = os.getenv("AZURE_OPENAI_MODEL") or "mock-model"
+    _client = OpenAI(
+        api_key=api_key,
+        base_url=f"{endpoint}/openai/deployments/{model}",
+        default_headers={"api-key": api_key}
+    )
     return _client
 
 SYSTEM_PROMPT = """
@@ -95,8 +97,8 @@ class NOFOParser:
         pass
 
     # ---------------------------
-    # PDF → TEXT
-    # ---------------------------
+# PDF → TEXT
+# ---------------------------
     def extract_text(self, file: Any) -> str:
         """
         Extracts raw text from a PDF file.
@@ -111,34 +113,19 @@ class NOFOParser:
             if isinstance(file, str):
                 # Standard file path
                 with pdfplumber.open(file) as pdf:
-                    if not pdf.pages:
-                        raise ValueError("The PDF file contains no pages.")
-                    for i, page in enumerate(pdf.pages):
-                        page_text = page.extract_text()
-                        if page_text:
-                            pages.append(page_text)
+                    pages = self._read_pdf_pages(pdf)
             elif hasattr(file, "file"):
                 # FastAPI UploadFile
                 if hasattr(file.file, "seek"):
                     file.file.seek(0)
                 with pdfplumber.open(file.file) as pdf:
-                    if not pdf.pages:
-                        raise ValueError("The PDF file contains no pages.")
-                    for i, page in enumerate(pdf.pages):
-                        page_text = page.extract_text()
-                        if page_text:
-                            pages.append(page_text)
+                    pages = self._read_pdf_pages(pdf)
             else:
                 # File-like binary stream
                 if hasattr(file, "seek"):
                     file.seek(0)
                 with pdfplumber.open(file) as pdf:
-                    if not pdf.pages:
-                        raise ValueError("The PDF file contains no pages.")
-                    for i, page in enumerate(pdf.pages):
-                        page_text = page.extract_text()
-                        if page_text:
-                            pages.append(page_text)
+                    pages = self._read_pdf_pages(pdf)
 
             if not pages:
                 raise ValueError("No readable text could be extracted from any page in the PDF.")
@@ -152,6 +139,17 @@ class NOFOParser:
         except Exception as e:
             # Explicit failure reporting
             raise RuntimeError(f"PDF extraction failed: {str(e)}") from e
+
+    def _read_pdf_pages(self, pdf: pdfplumber.PDF) -> List[str]:
+        """Helper to safely read and extract all text pages from an opened PDF object."""
+        if not pdf.pages:
+            raise ValueError("The PDF file contains no pages.")
+        pages = []
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                pages.append(page_text)
+        return pages
 
     # ---------------------------
     # CLEANING

@@ -151,6 +151,9 @@
 ##         -working: true
 ##         -agent: "main"
 ##         -comment: "Fixed strip() return issue in clean_text() and verified text string return."
+##         -working: true
+##         -agent: "testing"
+##         -comment: "Verified clean_text() returns proper string type. Test test_nofo_parser_clean_text PASSED."
 ##   - task: "Add PDF extraction error handling and empty page guards to nofo_parser.py"
 ##     implemented: true
 ##     working: true
@@ -162,6 +165,9 @@
 ##         -working: true
 ##         -agent: "main"
 ##         -comment: "Added try-except blocks, type checks for file-like/UploadFile/path sources, and empty page check."
+##         -working: true
+##         -agent: "testing"
+##         -comment: "Verified PDF extraction error handling with invalid inputs. Tests test_nofo_parser_extract_text_invalid_input and test_nofo_parser_parse_empty_input PASSED."
 ##   - task: "Harden docx_extractor.py load error handling"
 ##     implemented: true
 ##     working: true
@@ -173,6 +179,9 @@
 ##         -working: true
 ##         -agent: "main"
 ##         -comment: "Added type checking and try-except blocks to catch loading failures from file paths and file-like streams."
+##         -working: true
+##         -agent: "testing"
+##         -comment: "Verified DOCX load error handling with non-existent file. Test test_docx_extractor_load_error PASSED. Also verified loading from file paths, BytesIO streams, and FastAPI UploadFile-like objects. Test test_docx_extractor_load_sources PASSED."
 ##   - task: "Standardize DOCX text reconstruction for placeholder detection"
 ##     implemented: true
 ##     working: true
@@ -184,6 +193,9 @@
 ##         -working: true
 ##         -agent: "main"
 ##         -comment: "Standardized extraction across paragraphs and table cells by joining run text to support split runs."
+##         -working: true
+##         -agent: "testing"
+##         -comment: "Verified text reconstruction from runs correctly extracts placeholders from paragraphs and table cells. Test test_docx_extractor_workflow PASSED with full text extraction, placeholder extraction, and malformed token detection."
 ##   - task: "Add checks for malformed tokens in docx_extractor.py"
 ##     implemented: true
 ##     working: true
@@ -195,6 +207,9 @@
 ##         -working: true
 ##         -agent: "main"
 ##         -comment: "Added detect_malformed_tokens() scanning for unmatched '{', unmatched '}', and empty '{}' with context."
+##         -working: true
+##         -agent: "testing"
+##         -comment: "Verified malformed token detection correctly identifies unmatched opening braces, unmatched closing braces, and empty placeholders with context. Test test_docx_extractor_workflow PASSED."
 ##   - task: "Auto-correct unmatched braces in docx_extractor.py"
 ##     implemented: true
 ##     working: true
@@ -206,6 +221,9 @@
 ##         -working: true
 ##         -agent: "main"
 ##         -comment: "Implemented auto_correct_braces() to automatically fix unmatched opening/closing and empty braces and save changes."
+##         -working: true
+##         -agent: "testing"
+##         -comment: "Verified auto-correction logic fixes unmatched open braces, unmatched close braces, and removes empty braces. Test test_docx_extractor_auto_correct PASSED with 3 fixes made and clean re-load verification."
 ##   - task: "Harden and integrate remaining Grant Engine files"
 ##     implemented: true
 ##     working: true
@@ -217,16 +235,19 @@
 ##         -working: true
 ##         -agent: "main"
 ##         -comment: "Hardened and fully integrated all 7 remaining engine components (grant_context.py, section_generator.py, template_loader.py, validator.py, data_loader.py, exporter.py, engine.py) with full schema checking, placeholder formats, loading guards, and automatic validation."
+##         -working: true
+##         -agent: "testing"
+##         -comment: "Verified all 11 Grant Engine Python files (nofo_parser.py, docx_extractor.py, grant_scorer.py, exporter.py, grant_context.py, template_loader.py, section_generator.py, data_loader.py, validator.py, engine.py, variable_mapper.py) are completely hardened, lint-free, and modularized. All 14 unit tests PASSED with 100% success rate: test_nofo_parser_clean_text, test_nofo_parser_extract_text_invalid_input, test_nofo_parser_parse_empty_input, test_docx_extractor_load_error, test_docx_extractor_workflow, test_docx_extractor_load_sources, test_docx_extractor_auto_correct, test_grant_context_type_guards, test_section_generator_formatting, test_template_loader_guards, test_data_loader_guards, test_exporter_safe_nones, test_engine_workflow, test_grant_scorer_and_eligibility. Python linting shows zero errors across all files."
 ##
 ## metadata:
 ##   created_by: "main_agent"
 ##   version: "1.0"
-##   test_sequence: 4
+##   test_sequence: 5
 ##   run_ui: true
 ##
 ## test_plan:
 ##   current_focus:
-##     - "Workflow integration testing complete"
+##     - "All backend Grant Engine verification complete"
 ##   stuck_tasks: []
 ##   test_all: true
 ##   test_priority: "sequential"
@@ -236,3 +257,5 @@
 ##     -message: "Hardened and fully integrated all remaining Grant Automation Engine files (grant_context.py, section_generator.py, template_loader.py, validator.py, data_loader.py, exporter.py, engine.py) under Choice A approved plan. Ran 13 comprehensive unit tests covering all paths, exceptions, format conversions, and workflow validations. All 13 tests are passing flawlessly."
 ##     -agent: "testing"
 ##     -message: "Completed thorough E2E Playwright browser automation test on https://grant-engine-debug.preview.emergentagent.com. All UI tests passed successfully: (1) Page loads beautifully with 'Grant Automation Engine' header, (2) 'Brace Corrections & Diff' tab shows file selector correctly, (3) 'Compliance Matrix' tab displays expected awaiting data state, (4) No console errors detected, (5) No blank page issues. Minor: Cloudflare RUM analytics endpoint failed (non-critical). Application is fully functional."
+##     -agent: "testing"
+##     -message: "COMPREHENSIVE BACKEND VERIFICATION COMPLETE: All 11 Grant Engine Python files (grant_scorer.py, exporter.py, nofo_parser.py, docx_extractor.py, grant_context.py, template_loader.py, section_generator.py, data_loader.py, validator.py, engine.py, variable_mapper.py) are completely hardened, lint-free, modularized, and production-ready. Python linting returned ZERO errors across all files. All 14 unit tests under pytest backend/tests/test_grant_engine.py passed with 100% success rate. Test coverage includes: NOFO parser (clean_text, extract_text error handling, parse empty input), DOCX extractor (load error handling, workflow with placeholders and malformed tokens, load from multiple sources, auto-correct braces), Grant context (type guards and coercion), Section generator (placeholder formatting with single/double braces and list narratives), Template loader (directory guards), Data loader (directory existence and JSON parsing guards), Exporter (safe None handling and DOCX generation), Engine workflow (integration with validation), and Grant scorer (eligibility scoring with client profiles). All backend components are fully functional and ready for production use."

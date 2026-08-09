@@ -106,6 +106,7 @@ class Exporter:
     def export_docx(self, context, output_path="grant_output.docx") -> str:
         """
         Export the GrantContext as a beautifully formatted, SAM.gov & Grants.gov compliant Word document.
+        Splits implementation into cover-page building and section-content building to minimize function complexity.
         """
         self._ensure_dir_exists(output_path)
         
@@ -113,95 +114,11 @@ class Exporter:
             doc = Document()
             self._apply_sam_gov_styling(doc)
 
-            # ------------------------------------------
-            # 1. GORGEOUS COVER PAGE / SF-424 IDENTIFIER
-            # ------------------------------------------
-            doc.add_paragraph("\n" * 2)
-            title_p = doc.add_paragraph()
-            title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_p.add_run("FEDERAL GRANT APPLICATION / PROJECT PROPOSAL")
-            title_run.font.size = Pt(18)
-            title_run.font.bold = True
-            
-            sub_p = doc.add_paragraph()
-            sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            sub_run = sub_p.add_run("Prepared in Compliance with Grants.gov and SAM.gov Standards")
-            sub_run.font.size = Pt(11)
-            sub_run.font.italic = True
-            
-            doc.add_paragraph("\n" * 3)
+            # 1. Build Cover Page
+            self._build_cover_page(doc, context)
 
-            # Metadata Info Grid (Table)
-            doc.add_heading("I. ADMINISTRATIVE IDENTIFICATION MATRIX", level=1)
-            table = doc.add_table(rows=7, cols=2)
-            table.alignment = WD_TABLE_ALIGNMENT.CENTER
-            
-            # Formatted table headers and elements
-            def set_row(idx, key, val):
-                r = table.rows[idx]
-                r.cells[0].paragraphs[0].text = key
-                r.cells[0].paragraphs[0].runs[0].font.bold = True
-                r.cells[1].paragraphs[0].text = str(val)
-
-            nofo_sec = context.nofo.get("sections", {}) if isinstance(context.nofo, dict) else {}
-            opp_num = nofo_sec.get("opportunity_number") if nofo_sec else "[Not Populated]"
-            agency = nofo_sec.get("agency") if nofo_sec else "[Not Populated]"
-            org_name = context.organizational_profile.get("Organization_Name") or "[Not Populated]"
-            uei = context.organizational_profile.get("uei_number") or context.organizational_profile.get("Additional_Info", {}).get("uei_number") or "[Not Populated]"
-            set_aside = nofo_sec.get("set_aside_category") if nofo_sec else "[Not Populated]"
-            naics = nofo_sec.get("naics_code") if nofo_sec else "[Not Populated]"
-
-            set_row(0, "Funding Opportunity Number:", opp_num)
-            set_row(1, "Issuing Federal Agency:", agency)
-            set_row(2, "Applicant Legal Entity:", org_name)
-            set_row(3, "Unique Entity Identifier (UEI):", uei)
-            set_row(4, "SAM.gov Status:", "Active / Compliant")
-            set_row(5, "Acquisition Set-Aside:", set_aside if set_aside else "Unrestricted")
-            set_row(6, "Assigned NAICS Code:", naics if naics else "N/A")
-
-            doc.add_paragraph("\n")
-            doc.add_page_break()
-
-            # ------------------------------------------
-            # 2. SECTIONS CONTENT GENERATION
-            # ------------------------------------------
-            sections_map = [
-                ("II. ORGANIZATIONAL PROFILE & CAPACITY", context.organizational_profile),
-                ("III. PROJECT DESCRIPTION & PROGRAM DESIGN", context.program_design),
-                ("IV. IMPLEMENTATION PLAN & WORK PLAN", context.implementation_plan),
-                ("V. KEY PERSONNEL & STAFFING STRUCTURE", context.staffing_plan),
-                ("VI. BUDGET NARRATIVE & COST JUSTIFICATION", context.budget_narrative),
-                ("VII. EVALUATIVE PLAN & MEASURABLE OUTCOMES", context.evaluation_plan),
-                ("VIII. PROJECT SUSTAINABILITY & PARTNERSHIPS", context.sustainability_plan)
-            ]
-
-            for section_title, section_data in sections_map:
-                doc.add_heading(section_title, level=1)
-                
-                if not section_data or all(v is None for v in section_data.values()):
-                    doc.add_paragraph("[Applicant is required to complete and populate this section before submission.]")
-                    continue
-
-                for k, v in section_data.items():
-                    if k == "Additional_Info":
-                        if isinstance(v, dict) and v:
-                            doc.add_heading("Additional Compliance Specifications", level=2)
-                            for sub_k, sub_v in v.items():
-                                doc.add_paragraph(f"{sub_k}: {self._safe_value(sub_v)}")
-                        continue
-
-                    # Aligned lists and tables representations
-                    if isinstance(v, list) and v:
-                        doc.add_paragraph(f"{k}:")
-                        for item in v:
-                            doc.add_paragraph(f"  • {item}", style='List Bullet')
-                    elif isinstance(v, dict) and v:
-                        # Format nested items neatly
-                        doc.add_paragraph(f"{k}:")
-                        for sub_k, sub_v in v.items():
-                            doc.add_paragraph(f"  - {sub_k}: {self._safe_value(sub_v)}")
-                    else:
-                        doc.add_paragraph(f"{k}: {self._safe_value(v)}")
+            # 2. Build Sections
+            self._build_sections_content(doc, context)
 
             doc.save(output_path)
             return output_path
@@ -210,4 +127,92 @@ class Exporter:
             raise RuntimeError(f"Permission denied saving DOCX output to '{output_path}': {str(perm_err)}") from perm_err
         except Exception as e:
             raise RuntimeError(f"Failed to generate and export DOCX to '{output_path}': {str(e)}") from e
+
+    def _build_cover_page(self, doc: Document, context: Any):
+        """Helper to build a professional compliance cover page."""
+        doc.add_paragraph("\n" * 2)
+        title_p = doc.add_paragraph()
+        title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        title_run = title_p.add_run("FEDERAL GRANT APPLICATION / PROJECT PROPOSAL")
+        title_run.font.size = Pt(18)
+        title_run.font.bold = True
+        
+        sub_p = doc.add_paragraph()
+        sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sub_run = sub_p.add_run("Prepared in Compliance with Grants.gov and SAM.gov Standards")
+        sub_run.font.size = Pt(11)
+        sub_run.font.italic = True
+        
+        doc.add_paragraph("\n" * 3)
+
+        # Metadata Info Grid (Table)
+        doc.add_heading("I. ADMINISTRATIVE IDENTIFICATION MATRIX", level=1)
+        table = doc.add_table(rows=7, cols=2)
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        
+        # Formatted table headers and elements
+        def set_row(idx, key, val):
+            r = table.rows[idx]
+            r.cells[0].paragraphs[0].text = key
+            r.cells[0].paragraphs[0].runs[0].font.bold = True
+            r.cells[1].paragraphs[0].text = str(val)
+
+        nofo_sec = context.nofo.get("sections", {}) if isinstance(context.nofo, dict) else {}
+        opp_num = nofo_sec.get("opportunity_number") if nofo_sec else "[Not Populated]"
+        agency = nofo_sec.get("agency") if nofo_sec else "[Not Populated]"
+        org_name = context.organizational_profile.get("Organization_Name") or "[Not Populated]"
+        uei = context.organizational_profile.get("uei_number") or context.organizational_profile.get("Additional_Info", {}).get("uei_number") or "[Not Populated]"
+        set_aside = nofo_sec.get("set_aside_category") if nofo_sec else "[Not Populated]"
+        naics = nofo_sec.get("naics_code") if nofo_sec else "[Not Populated]"
+
+        set_row(0, "Funding Opportunity Number:", opp_num)
+        set_row(1, "Issuing Federal Agency:", agency)
+        set_row(2, "Applicant Legal Entity:", org_name)
+        set_row(3, "Unique Entity Identifier (UEI):", uei)
+        set_row(4, "SAM.gov Status:", "Active / Compliant")
+        set_row(5, "Acquisition Set-Aside:", set_aside if set_aside else "Unrestricted")
+        set_row(6, "Assigned NAICS Code:", naics if naics else "N/A")
+
+        doc.add_paragraph("\n")
+        doc.add_page_break()
+
+    def _build_sections_content(self, doc: Document, context: Any):
+        """Helper to iterate and populate standard section content."""
+        sections_map = [
+            ("II. ORGANIZATIONAL PROFILE & CAPACITY", context.organizational_profile),
+            ("III. PROJECT DESCRIPTION & PROGRAM DESIGN", context.program_design),
+            ("IV. IMPLEMENTATION PLAN & WORK PLAN", context.implementation_plan),
+            ("V. KEY PERSONNEL & STAFFING STRUCTURE", context.staffing_plan),
+            ("VI. BUDGET NARRATIVE & COST JUSTIFICATION", context.budget_narrative),
+            ("VII. EVALUATIVE PLAN & MEASURABLE OUTCOMES", context.evaluation_plan),
+            ("VIII. PROJECT SUSTAINABILITY & PARTNERSHIPS", context.sustainability_plan)
+        ]
+
+        for section_title, section_data in sections_map:
+            doc.add_heading(section_title, level=1)
+            
+            if not section_data or all(v is None for v in section_data.values()):
+                doc.add_paragraph("[Applicant is required to complete and populate this section before submission.]")
+                continue
+
+            for k, v in section_data.items():
+                if k == "Additional_Info":
+                    if isinstance(v, dict) and v:
+                        doc.add_heading("Additional Compliance Specifications", level=2)
+                        for sub_k, sub_v in v.items():
+                            doc.add_paragraph(f"{sub_k}: {self._safe_value(sub_v)}")
+                    continue
+
+                # Aligned lists and tables representations
+                if isinstance(v, list) and v:
+                    doc.add_paragraph(f"{k}:")
+                    for item in v:
+                        doc.add_paragraph(f"  • {item}", style='List Bullet')
+                elif isinstance(v, dict) and v:
+                    # Format nested items neatly
+                    doc.add_paragraph(f"{k}:")
+                    for sub_k, sub_v in v.items():
+                        doc.add_paragraph(f"  - {sub_k}: {self._safe_value(sub_v)}")
+                else:
+                    doc.add_paragraph(f"{k}: {self._safe_value(v)}")
 

@@ -41,44 +41,42 @@ class DocxExtractor:
 
         return "\n".join(parts)
 
+    def _extract_text_from_runs(self, element: Any) -> str:
+        """Helper to safely reconstruct text from consecutive runs to support split keys."""
+        if hasattr(element, "runs") and element.runs:
+            return "".join(run.text for run in element.runs)
+        return getattr(element, "text", "")
+
+    def _extract_matches_from_text(self, text: str, pattern: str, found: Set[str]):
+        """Helper to scan text, match patterns, and clean brace placeholders."""
+        matches = re.findall(pattern, text)
+        for m in matches:
+            clean_field = m.strip("{} ")
+            if clean_field:
+                found.add(clean_field)
+
     def extract_placeholders(self) -> List[str]:
         """
         Extracts all valid {field} (single or double curly braces) placeholders.
         Reconstructs run text to ensure split placeholders are detected.
         """
         found = set()
-        # Matches any non-empty bracketed pattern, e.g. {field} or {{field}}
-        # Reconstructs text of paragraph/run to handle split tokens and standardizes placeholder detection.
         pattern = r"\{+([a-zA-Z0-9_.-]+)\}+"
 
         # Paragraph placeholders
         for para in self.doc.paragraphs:
-            # Standardize text reconstruction from runs
-            text = "".join(run.text for run in para.runs)
-            matches = re.findall(pattern, text)
-            for m in matches:
-                clean_field = m.strip("{} ")
-                if clean_field:
-                    found.add(clean_field)
+            text = self._extract_text_from_runs(para)
+            self._extract_matches_from_text(text, pattern, found)
 
         # Table placeholders
         for table in self.doc.tables:
             for row in table.rows:
                 for cell in row.cells:
-                    # In cell, standardize cell paragraphs if runs are split, or fallback to cell.text
                     text = cell.text
-                    # Check if there are paragraphs to reconstruct
                     if cell.paragraphs:
-                        reconstructed = []
-                        for p in cell.paragraphs:
-                            reconstructed.append("".join(run.text for run in p.runs))
+                        reconstructed = [self._extract_text_from_runs(p) for p in cell.paragraphs]
                         text = "\n".join(reconstructed) if any(reconstructed) else cell.text
-
-                    matches = re.findall(pattern, text)
-                    for m in matches:
-                        clean_field = m.strip("{} ")
-                        if clean_field:
-                            found.add(clean_field)
+                    self._extract_matches_from_text(text, pattern, found)
 
         return sorted(list(found))
 
@@ -94,7 +92,7 @@ class DocxExtractor:
         
         # Scan paragraphs
         for idx, para in enumerate(self.doc.paragraphs):
-            text = "".join(run.text for run in para.runs)
+            text = self._extract_text_from_runs(para)
             para_issues = self._scan_text_for_malformed(text)
             for issue in para_issues:
                 issues.append(f"Paragraph {idx+1}: {issue}")
@@ -105,9 +103,7 @@ class DocxExtractor:
                 for c_idx, cell in enumerate(row.cells):
                     text = cell.text
                     if cell.paragraphs:
-                        reconstructed = []
-                        for p in cell.paragraphs:
-                            reconstructed.append("".join(run.text for run in p.runs))
+                        reconstructed = [self._extract_text_from_runs(p) for p in cell.paragraphs]
                         text = "\n".join(reconstructed) if any(reconstructed) else cell.text
 
                     cell_issues = self._scan_text_for_malformed(text)
@@ -223,33 +219,51 @@ class DocxExtractor:
         """
         total_fixes = 0
 
-        # Process paragraphs
-        for para in self.doc.paragraphs:
-            original_text = para.text
-            corrected_text, fixes = self.correct_text_braces(original_text)
-            if fixes > 0:
-                para.text = corrected_text
-                total_fixes += fixes
+        # 1. Correct standard paragraphs
+        total_fixes += self._correct_doc_paragraphs()
 
-        # Process tables
-        for table in self.doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    if cell.paragraphs:
-                        for para in cell.paragraphs:
-                            original_text = para.text
-                            corrected_text, fixes = self.correct_text_braces(original_text)
-                            if fixes > 0:
-                                para.text = corrected_text
-                                total_fixes += fixes
-                    else:
-                        original_text = cell.text
-                        corrected_text, fixes = self.correct_text_braces(original_text)
-                        if fixes > 0:
-                            cell.text = corrected_text
-                            total_fixes += fixes
+        # 2. Correct table cells
+        total_fixes += self._correct_doc_tables()
 
         if output_path and total_fixes > 0:
             self.doc.save(output_path)
 
         return total_fixes
+
+    def _correct_doc_paragraphs(self) -> int:
+        """Helper to iterate and correct doc paragraphs."""
+        fixes_count = 0
+        for para in self.doc.paragraphs:
+            original_text = para.text
+            corrected_text, fixes = self.correct_text_braces(original_text)
+            if fixes > 0:
+                para.text = corrected_text
+                fixes_count += fixes
+        return fixes_count
+
+    def _correct_doc_tables(self) -> int:
+        """Helper to iterate and correct doc table cell paragraphs."""
+        fixes_count = 0
+        for table in self.doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    fixes_count += self._correct_single_cell(cell)
+        return fixes_count
+
+    def _correct_single_cell(self, cell: Any) -> int:
+        """Helper to correct text of a single cell."""
+        fixes_count = 0
+        if cell.paragraphs:
+            for para in cell.paragraphs:
+                original_text = para.text
+                corrected_text, fixes = self.correct_text_braces(original_text)
+                if fixes > 0:
+                    para.text = corrected_text
+                    fixes_count += fixes
+        else:
+            original_text = cell.text
+            corrected_text, fixes = self.correct_text_braces(original_text)
+            if fixes > 0:
+                cell.text = corrected_text
+                fixes_count += fixes
+        return fixes_count

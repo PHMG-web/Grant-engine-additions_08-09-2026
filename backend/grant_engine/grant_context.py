@@ -1,3 +1,5 @@
+from typing import Any
+
 class GrantContext:
     """
     Holds all structured data for a single grant workflow.
@@ -92,27 +94,31 @@ class GrantContext:
 
             if k in target:
                 expected_val = target[k]
-                # Type guards based on schema standards
                 if expected_val is not None:
                     expected_type = type(expected_val)
-                    if v is not None and not isinstance(v, expected_type):
-                        # Try parsing/converting values safely
-                        try:
-                            if expected_type is list:
-                                if isinstance(v, str):
-                                    v = [item.strip() for item in v.split(",") if item.strip()]
-                                else:
-                                    v = list(v)
-                            elif expected_type is dict:
-                                v = dict(v)
-                            elif expected_type is str:
-                                v = str(v)
-                        except Exception as convert_err:
-                            raise TypeError(f"Field '{k}' in section '{section_name}' expected type '{expected_type.__name__}', but received value of type '{type(v).__name__}' which could not be converted: {str(convert_err)}")
+                    v = self._coerce_value_type(k, v, expected_type, section_name)
                 target[k] = v
             else:
-                # Store as custom metadata in Additional_Info
                 target.setdefault("Additional_Info", {})[k] = v
+
+    def _coerce_value_type(self, k: str, v: Any, expected_type: type, section_name: str) -> Any:
+        """Helper to safely coerce values to match standard schema types."""
+        if v is None or isinstance(v, expected_type):
+            return v
+            
+        try:
+            if expected_type is list:
+                if isinstance(v, str):
+                    return [item.strip() for item in v.split(",") if item.strip()]
+                return list(v)
+            if expected_type is dict:
+                return dict(v)
+            if expected_type is str:
+                return str(v)
+        except Exception as convert_err:
+            raise TypeError(f"Field '{k}' in section '{section_name}' expected type '{expected_type.__name__}', but received value of type '{type(v).__name__}' which could not be converted: {str(convert_err)}")
+            
+        return v
 
     def to_dict(self):
         """Return the entire context as a dictionary (useful for rendering/export)."""
