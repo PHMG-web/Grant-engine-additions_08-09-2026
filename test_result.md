@@ -101,3 +101,79 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+## user_problem_statement: "Harden and fix nofo_parser.py and docx_extractor.py inside the Grant Automation Engine."
+## backend:
+##   - task: "Fix nofo_parser.py clean_text() return issue"
+##     implemented: true
+##     working: true
+##     file: "backend/grant_engine/nofo_parser.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##         -working: true
+##         -agent: "main"
+##         -comment: "Fixed strip() return issue in clean_text() and verified text string return."
+##   - task: "Add PDF extraction error handling and empty page guards to nofo_parser.py"
+##     implemented: true
+##     working: true
+##     file: "backend/grant_engine/nofo_parser.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##         -working: true
+##         -agent: "main"
+##         -comment: "Added try-except blocks, type checks for file-like/UploadFile/path sources, and empty page check."
+##   - task: "Harden docx_extractor.py load error handling"
+##     implemented: true
+##     working: true
+##     file: "backend/grant_engine/docx_extractor.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##         -working: true
+##         -agent: "main"
+##         -comment: "Added type checking and try-except blocks to catch loading failures from file paths and file-like streams."
+##   - task: "Standardize DOCX text reconstruction for placeholder detection"
+##     implemented: true
+##     working: true
+##     file: "backend/grant_engine/docx_extractor.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##         -working: true
+##         -agent: "main"
+##         -comment: "Standardized extraction across paragraphs and table cells by joining run text to support split runs."
+##   - task: "Add checks for malformed tokens in docx_extractor.py"
+##     implemented: true
+##     working: true
+##     file: "backend/grant_engine/docx_extractor.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##         -working: true
+##         -agent: "main"
+##         -comment: "Added detect_malformed_tokens() scanning for unmatched '{', unmatched '}', and empty '{}' with context."
+##
+## metadata:
+##   created_by: "main_agent"
+##   version: "1.0"
+##   test_sequence: 1
+##   run_ui: false
+##
+## test_plan:
+##   current_focus:
+##     - "Verify nofo_parser.py string returns and exception paths"
+##     - "Verify docx_extractor.py split-runs and token error reporting"
+##   stuck_tasks: []
+##   test_all: true
+##   test_priority: "sequential"
+##
+## agent_communication:
+##     -agent: "main"
+##     -message: "Successfully implemented targeted hardening and ran comprehensive unit tests covering all edge cases. All 6 tests are passing."
