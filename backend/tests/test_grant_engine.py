@@ -141,3 +141,49 @@ def test_docx_extractor_load_sources():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_docx_extractor_auto_correct():
+    # Test text corrections
+    extractor = DocxExtractor.__new__(DocxExtractor) # Create uninitialized instance for unit testing method directly
+    
+    # 1. Test correct_text_braces logic
+    text = "This has {unmatched_open and other matched {correct_field} with {}. Also unmatched close}"
+    corrected, fixes = extractor.correct_text_braces(text)
+    # {unmatched_open -> {unmatched_open} (1 fix)
+    # {} -> removed (1 fix)
+    # close} -> {close} (1 fix)
+    assert fixes == 3
+    assert "{unmatched_open}" in corrected
+    assert "{close}" in corrected
+    assert "{}" not in corrected
+
+    # 2. Test full document auto-correction
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Para with {Organization_Name open brace.")
+        doc.add_paragraph("Para with Capacity} close brace.")
+        doc.add_paragraph("Para with empty {} braces.")
+        doc.save(tmp_path)
+
+        ext = DocxExtractor(tmp_path)
+        # Verify it has malformed issues before correction
+        assert len(ext.detect_malformed_tokens()) > 0
+
+        # Run correction
+        fixes_made = ext.auto_correct_braces(tmp_path)
+        assert fixes_made == 3
+
+        # Re-load and verify it is clean with NO malformed issues and 100% valid placeholders!
+        clean_ext = DocxExtractor(tmp_path)
+        assert len(clean_ext.detect_malformed_tokens()) == 0
+        placeholders = clean_ext.extract_placeholders()
+        assert "Organization_Name" in placeholders
+        assert "Capacity" in placeholders
+
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)

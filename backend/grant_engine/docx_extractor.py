@@ -156,3 +156,100 @@ class DocxExtractor:
             "placeholders": self.extract_placeholders(),
             "issues": self.detect_malformed_tokens()
         }
+
+    def correct_text_braces(self, text: str) -> tuple[str, int]:
+        """
+        Automatically corrects simple unmatched and empty braces in a string.
+        - '{field' (unmatched open) -> '{field}'
+        - 'field}' (unmatched close) -> '{field}'
+        - '{}' or '{   }' (empty) -> deleted
+        Returns:
+            (corrected_text, total_fixes_made)
+        """
+        if not text:
+            return text, 0
+
+        fixes = 0
+
+        # 1. Clean/delete empty placeholders (e.g. {}, {   }, {{}}, etc.)
+        cleaned_text, count = re.subn(r"\{+[ \t]*\}+", "", text)
+        fixes += count
+
+        # 2. Fix unmatched open braces:
+        # Match pattern: '{FIELD' which is not followed by a closing '}' before another brace or end of sentence.
+        unmatched_open_pattern = r"\{([a-zA-Z0-9_.-]+)(?![^{}]*\})"
+        
+        matches = list(re.finditer(unmatched_open_pattern, cleaned_text))
+        # Process from back to front to avoid index shifting issues
+        for m in reversed(matches):
+            start, end = m.start(), m.end()
+            field = m.group(1)
+            cleaned_text = cleaned_text[:start] + "{" + field + "}" + cleaned_text[end:]
+            fixes += 1
+
+        # 3. Fix unmatched close braces:
+        # Scan from left to right to find unmatched close braces '}'
+        stack = []
+        unmatched_close_indices = []
+        for idx, char in enumerate(cleaned_text):
+            if char == "{":
+                stack.append(idx)
+            elif char == "}":
+                if stack:
+                    stack.pop()
+                else:
+                    unmatched_close_indices.append(idx)
+
+        # Process unmatched closing brace indices from back to front
+        for idx in reversed(unmatched_close_indices):
+            # Scan backwards to find the word boundary starting point
+            word_start = idx
+            while word_start > 0 and re.match(r"[a-zA-Z0-9_.-]", cleaned_text[word_start-1]):
+                word_start -= 1
+            
+            if word_start < idx:
+                word = cleaned_text[word_start:idx]
+                cleaned_text = cleaned_text[:word_start] + "{" + word + "}" + cleaned_text[idx+1:]
+                fixes += 1
+
+        return cleaned_text, fixes
+
+    def auto_correct_braces(self, output_path: str = None) -> int:
+        """
+        Scans and automatically corrects all unmatched and empty braces in paragraphs and table cells.
+        Saves the corrected document to output_path if provided.
+        Returns:
+            The total number of fixes made across the entire document.
+        """
+        total_fixes = 0
+
+        # Process paragraphs
+        for para in self.doc.paragraphs:
+            original_text = para.text
+            corrected_text, fixes = self.correct_text_braces(original_text)
+            if fixes > 0:
+                para.text = corrected_text
+                total_fixes += fixes
+
+        # Process tables
+        for table in self.doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell.paragraphs:
+                        for para in cell.paragraphs:
+                            original_text = para.text
+                            corrected_text, fixes = self.correct_text_braces(original_text)
+                            if fixes > 0:
+                                para.text = corrected_text
+                                total_fixes += fixes
+                    else:
+                        original_text = cell.text
+                        corrected_text, fixes = self.correct_text_braces(original_text)
+                        if fixes > 0:
+                            cell.text = corrected_text
+                            total_fixes += fixes
+
+        if output_path and total_fixes > 0:
+            self.doc.save(output_path)
+
+        return total_fixes
