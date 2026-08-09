@@ -15,7 +15,7 @@ from .grant_context import GrantContext
 from .validator import Validator
 
 # Optional exports (only if implemented)
-# from .variable_mapper import VariableMapper
+from .variable_mapper import VariableMapper
 # from .section_generator import SectionGenerator
 from .docx_extractor import DocxExtractor
 # from .data_loader import DataLoader
@@ -30,5 +30,6 @@ __all__ = [
     "DocxExtractor",
     "NOFOParser",
     "NOFOData",
+    "VariableMapper",
 ]
 
