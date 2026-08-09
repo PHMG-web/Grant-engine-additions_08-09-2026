@@ -337,3 +337,60 @@ def test_engine_workflow():
         assert "organizational_profile" in engine.validation_results["errors"]
         assert "budget_narrative" in engine.validation_results["errors"]
 
+
+# ==========================================
+# GRANT SCORER TESTS
+# ==========================================
+
+def test_grant_scorer_and_eligibility():
+    from grant_engine.grant_scorer import GrantScorer, ClientProfile
+    
+    scorer = GrantScorer()
+    
+    # 1. Test perfectly eligible and matching client
+    client = ClientProfile(
+        organization_name="PHMEG Solutions",
+        organization_type="Nonprofit (501c3)",
+        has_active_sam_registration=True,
+        uei_number="UEI123456789",
+        geographic_location="Washington, DC",
+        cost_share_available=True,
+        requested_budget=2500000.0,
+        has_required_key_personnel=True
+    )
+    
+    nofo = NOFOData(
+        opportunity_number="HRSA-26-089",
+        eligibility="Nonprofit organizations only.",
+        award_ceiling="$4,000,000",
+        award_floor="$100,000",
+        cost_sharing="Yes, cost sharing is required for all applicants.",
+        uei_sam_required="Yes"
+    )
+    
+    res = scorer.score_eligibility(client, nofo)
+    assert res["is_eligible"] is True
+    assert res["score"] == 100
+    assert len(res["disqualifications"]) == 0
+
+    # 2. Test ineligible client (missing SAM, wrong entity type, over budget)
+    ineligible_client = ClientProfile(
+        organization_name="BadFit LLC",
+        organization_type="Large For-Profit Corporation",
+        has_active_sam_registration=False,
+        uei_number="",
+        cost_share_available=False,
+        requested_budget=5000000.0,  # Exceeds ceiling
+        has_required_key_personnel=False
+    )
+    
+    res_bad = scorer.score_eligibility(ineligible_client, nofo)
+    assert res_bad["is_eligible"] is False
+    assert res_bad["score"] < 50
+    assert len(res_bad["disqualifications"]) > 0
+    # Confirm exact blockers are detected
+    assert any("SAM.gov registration" in d for d in res_bad["disqualifications"])
+    assert any("exceeds the award ceiling" in d for d in res_bad["disqualifications"])
+    assert any("cost-sharing" in d for d in res_bad["disqualifications"])
+
+
