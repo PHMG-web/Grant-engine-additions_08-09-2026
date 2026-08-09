@@ -1,9 +1,12 @@
 import os
+import logging
 from .template_loader import TemplateLoader
 from .grant_context import GrantContext
 from .variable_mapper import VariableMapper
 from .section_generator import SectionGenerator
 from .validator import Validator
+
+logger = logging.getLogger(__name__)
 
 class GrantAutomationEngine:
     """
@@ -12,23 +15,35 @@ class GrantAutomationEngine:
     2. Map variables
     3. Generate sections
     4. Populate GrantContext
+    5. Perform automatic workflow validation and verification
     """
 
     def __init__(self, templates_dir):
+        if not templates_dir:
+            raise ValueError("Templates directory path cannot be empty.")
+            
+        if not os.path.exists(templates_dir):
+            raise FileNotFoundError(f"Templates directory '{templates_dir}' does not exist.")
+            
         self.loader = TemplateLoader(templates_dir)
         self.mapper = VariableMapper()
         self.generator = SectionGenerator()
+        self.validator = Validator(self.loader)
+        self.validation_results = None
 
     def run(self):
         """
-        Execute the full workflow and return a populated GrantContext.
+        Execute the full workflow, automatically verify outputs, and return a populated GrantContext.
         """
         context = GrantContext()
         workflow_order = self.loader.get_workflow_order()
+        
+        if not workflow_order:
+            raise ValueError("Templates manifest specifies an empty workflow order.")
 
         for template_id in workflow_order:
             template = self.loader.get_template(template_id)
-            required_fields = template["required_fields"]
+            required_fields = template.get("required_fields", [])
 
             # Step 1 — Map variables from NOFO + context
             mapped_variables = self.mapper.map_variables(template_id, context)
@@ -41,6 +56,18 @@ class GrantAutomationEngine:
 
             # Step 3 — Store results in GrantContext
             self._store_in_context(context, template_id, generated_section)
+
+        # Step 4 — Run automatic validation/verification check
+        self.validation_results = self.validator.validate(context)
+        
+        # Log validation outcomes for auditing
+        errors = self.validation_results.get("errors", {})
+        warnings = self.validation_results.get("warnings", {})
+        
+        if errors:
+            logger.error(f"Grant Automation validation completed with critical errors: {errors}")
+        if warnings:
+            logger.warning(f"Grant Automation validation warning alert: {warnings}")
 
         return context
 

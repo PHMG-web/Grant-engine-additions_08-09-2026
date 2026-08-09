@@ -1,5 +1,6 @@
 import os
 import tempfile
+import json
 import pytest
 from docx import Document
 from grant_engine.nofo_parser import NOFOParser, NOFOData
@@ -187,3 +188,152 @@ def test_docx_extractor_auto_correct():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+# ==========================================
+# GRANT CONTEXT & STATE TESTS
+# ==========================================
+
+def test_grant_context_type_guards():
+    from grant_engine.grant_context import GrantContext
+    context = GrantContext()
+    
+    # Safely update list conversion
+    context.update_section("program_design", {
+        "Program_Name": "Test Program",
+        "Objectives": "Objective 1, Objective 2, Objective 3" # String gets converted to list
+    })
+    
+    assert context.program_design["Program_Name"] == "Test Program"
+    assert context.program_design["Objectives"] == ["Objective 1", "Objective 2", "Objective 3"]
+
+    # Trigger TypeError on incorrect structure types
+    with pytest.raises(TypeError):
+        context.update_section("program_design", "not-a-dict")
+
+
+# ==========================================
+# SECTION GENERATOR TESTS
+# ==========================================
+
+def test_section_generator_formatting():
+    from grant_engine.section_generator import SectionGenerator
+    gen = SectionGenerator()
+    
+    # 1. Test single and double braces with spacing
+    template = "This is a {Single_Brace} and {{Double_Brace}} and {{  Spaced_Brace  }}."
+    variables = {
+        "Single_Brace": "A",
+        "Double_Brace": "B",
+        "Spaced_Brace": "C"
+    }
+    
+    res = gen.generate_section(template, variables)
+    assert res["generated_text"] == "This is a A and B and C."
+
+    # 2. Test natural list narrative formatting
+    list_template = "Objectives: {Objectives}"
+    assert gen.generate_section(list_template, {"Objectives": ["Objective 1"]})["generated_text"] == "Objectives: Objective 1"
+    assert gen.generate_section(list_template, {"Objectives": ["Obj 1", "Obj 2"]})["generated_text"] == "Objectives: Obj 1 and Obj 2"
+    assert gen.generate_section(list_template, {"Objectives": ["Obj 1", "Obj 2", "Obj 3"]})["generated_text"] == "Objectives: Obj 1, Obj 2, and Obj 3"
+
+
+# ==========================================
+# TEMPLATE LOADER VALIDATION TESTS
+# ==========================================
+
+def test_template_loader_guards():
+    from grant_engine.template_loader import TemplateLoader
+    
+    # Directory missing raise
+    with pytest.raises(FileNotFoundError):
+        TemplateLoader("non_existent_templates_dir")
+
+
+# ==========================================
+# DATA LOADER & MALFORMED JSON TESTS
+# ==========================================
+
+def test_data_loader_guards():
+    from grant_engine.data_loader import DataLoader
+    
+    loader = DataLoader("non_existent_data_dir")
+    with pytest.raises(FileNotFoundError):
+        loader.load_all()
+
+
+# ==========================================
+# EXPORTER DOCX & JSON GUARDS
+# ==========================================
+
+def test_exporter_safe_nones():
+    from grant_engine.exporter import Exporter
+    from grant_engine.grant_context import GrantContext
+    
+    exp = Exporter()
+    context = GrantContext()
+    
+    # Unpopulated values print safely
+    assert exp._safe_value(None) == "[Not Populated]"
+    assert exp._safe_value([]) == "[Not Populated]"
+    
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+        tmp_path = tmp.name
+        
+    try:
+        # Export DOCX safely with missing values without exceptions
+        saved_path = exp.export_docx(context, tmp_path)
+        assert os.path.exists(saved_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+# ==========================================
+# WORKFLOW ENGINE INTEGRATION TESTS
+# ==========================================
+
+def test_engine_workflow():
+    from grant_engine.engine import GrantAutomationEngine
+    
+    # Create fake templates directory with manifest and template files
+    with tempfile.TemporaryDirectory() as temp_dir:
+        manifest_data = {
+            "templates": [
+                {
+                    "id": "organizational_profile",
+                    "filename": "org_profile.txt",
+                    "order": 1,
+                    "required_fields": ["Organization_Name"]
+                },
+                {
+                    "id": "budget_narrative",
+                    "filename": "budget.txt",
+                    "order": 2,
+                    "required_fields": ["Budget_Total"]
+                }
+            ]
+        }
+        
+        # Write manifest.json
+        with open(os.path.join(temp_dir, "manifest.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest_data, f)
+            
+        # Write templates
+        with open(os.path.join(temp_dir, "org_profile.txt"), "w", encoding="utf-8") as f:
+            f.write("Profile: {Organization_Name} with mission {Mission}.")
+            
+        with open(os.path.join(temp_dir, "budget.txt"), "w", encoding="utf-8") as f:
+            f.write("Budget Narrative is {{Budget_Total}}.")
+
+        # Initialize engine
+        engine = GrantAutomationEngine(temp_dir)
+        
+        # Run workflow and assert validation checks run automatically
+        context = engine.run()
+        
+        assert engine.validation_results is not None
+        # Since fields are empty initially, errors will exist
+        assert "organizational_profile" in engine.validation_results["errors"]
+        assert "budget_narrative" in engine.validation_results["errors"]
+
