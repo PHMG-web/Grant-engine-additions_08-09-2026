@@ -394,3 +394,57 @@ def test_grant_scorer_and_eligibility():
     assert any("cost-sharing" in d for d in res_bad["disqualifications"])
 
 
+def test_grants_gov_attachments_checklist():
+    from grant_engine.validator import Validator
+    from grant_engine.grant_context import GrantContext
+    from grant_engine.template_loader import TemplateLoader
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Mini manifest and file mocking to prevent load exceptions
+        manifest_data = {"templates": [{"id": "organizational_profile", "filename": "o.txt", "order": 1, "required_fields": []}]}
+        with open(os.path.join(temp_dir, "manifest.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest_data, f)
+        with open(os.path.join(temp_dir, "o.txt"), "w", encoding="utf-8") as f:
+            f.write("Profile")
+            
+        loader = TemplateLoader(temp_dir)
+        validator = Validator(loader)
+        context = GrantContext()
+        
+        # Test empty context checklist (should report missing attachments)
+        checklist = validator.check_grants_gov_attachments(context)
+        assert len(checklist) == 5
+        # Mandatory forms should be flagged as missing
+        assert any(not item["is_present"] for item in checklist)
+        assert any(item["status"] == "Missing Required Attachment" for item in checklist)
+
+
+def test_semantic_alignment_matching():
+    from grant_engine.grant_scorer import GrantScorer
+    scorer = GrantScorer()
+    
+    client_caps = [
+        "Our team provides enterprise cybersecurity, zero-trust firewalls, and active threat monitoring.",
+        "We specialize in clinical healthcare delivery, primary care in rural clinics, and nursing staff support."
+    ]
+    
+    requirements = [
+        "Applicant must detail their strategy for rural primary care clinic staffing and healthcare access.",
+        "Must support enterprise threat intelligence and zero-trust IT network security."
+    ]
+    
+    alignments = scorer.semantic_align_capabilities(client_caps, requirements)
+    assert len(alignments) == 2
+    
+    # First requirement should map to the healthcare capability statement (high score, aligned)
+    assert "primary care" in alignments[0]["best_matching_client_capability"]
+    assert alignments[0]["alignment_score"] > 30.0
+    assert alignments[0]["is_aligned"] is True
+    
+    # Second requirement should map to the cybersecurity capability statement
+    assert "cybersecurity" in alignments[1]["best_matching_client_capability"]
+    assert alignments[1]["alignment_score"] > 30.0
+    assert alignments[1]["is_aligned"] is True
+
+
+

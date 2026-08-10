@@ -174,3 +174,66 @@ class GrantScorer:
             breakdown.append("Key Personnel Alignment: 15/15 pts (Fully Staffed & Compliant)")
             
         return score, disqualifications, breakdown
+
+    def semantic_align_capabilities(self, client_capabilities: List[str], nofo_requirements: List[str]) -> List[Dict[str, Any]]:
+        """
+        Calculates compliance and semantic alignment between client capability statements
+        and parsed solicitation/RFP requirements.
+        Provides detailed gaps analysis and matching scores.
+        """
+        alignments = []
+        if not client_capabilities or not nofo_requirements:
+            return alignments
+
+        # Helper to tokenize, lower-case, and clean words for semantic overlap matching
+        def get_keywords(text: str) -> set:
+            words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
+            stopwords = {"the", "and", "for", "with", "this", "our", "are", "will", "from", "that", "shall", "must"}
+            return set(w for w in words if w not in stopwords)
+
+        for req in nofo_requirements:
+            req_words = get_keywords(req)
+            if not req_words:
+                continue
+
+            best_match = "None"
+            highest_score = 0.0
+            
+            # Find the client capability statement that has the highest semantic similarity overlap
+            for cap in client_capabilities:
+                cap_words = get_keywords(cap)
+                if not cap_words:
+                    continue
+
+                # Intersection over union (Jaccard similarity)
+                intersection = req_words.intersection(cap_words)
+                union = req_words.union(cap_words)
+                
+                # Combine subset cover ratio and global Jaccard similarity for stable semantic matching
+                subset_ratio = len(intersection) / len(req_words) if req_words else 0.0
+                jaccard_ratio = len(intersection) / len(union) if union else 0.0
+                combined_score = (subset_ratio * 0.7 + jaccard_ratio * 0.3) * 100.0
+                
+                if combined_score > highest_score:
+                    highest_score = combined_score
+                    best_match = cap
+
+            highest_score = round(highest_score, 1)
+            is_aligned = highest_score >= 30.0
+
+            # Gap Analysis recommendation
+            gap_analysis = "Compliant alignment found."
+            if not is_aligned:
+                gap_analysis = f"High risk gap detected. Recommended action: Expand proposal narrative to explicitly reference keywords: {', '.join(sorted(list(req_words))[:4])}."
+            elif highest_score < 75.0:
+                gap_analysis = f"Partial alignment. Recommended action: Add more concrete past performance or numerical metrics to support this requirement."
+
+            alignments.append({
+                "solicitation_requirement": req,
+                "best_matching_client_capability": best_match,
+                "alignment_score": highest_score,
+                "is_aligned": is_aligned,
+                "gap_analysis": gap_analysis
+            })
+
+        return alignments

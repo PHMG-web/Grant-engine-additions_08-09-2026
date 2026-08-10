@@ -109,3 +109,71 @@ class Validator:
 
         return {}
 
+    def check_grants_gov_attachments(self, context: Any) -> List[Dict[str, Any]]:
+        """
+        Scans GrantContext and maps standard Grants.gov/SAM.gov mandatory submission forms
+        directly to populated project sections, verifying eligibility and completeness.
+        """
+        checklist = []
+        
+        # Define mandatory attachments schema mapping
+        requirements = [
+            {
+                "form_name": "SF-424 (Application for Federal Assistance)",
+                "grants_gov_requirement": "Mandatory Form",
+                "mapped_section": "organizational_profile",
+                "check_key": "Organization_Name",
+                "description": "Applicant legal entity, SAM.gov UEI registration details"
+            },
+            {
+                "form_name": "SF-424A (Budget Information - Non-Construction)",
+                "grants_gov_requirement": "Mandatory Form",
+                "mapped_section": "budget_narrative",
+                "check_key": "Budget_Total",
+                "description": "Total requested funds, personnel costs, cost justifications"
+            },
+            {
+                "form_name": "Project Narrative Statement",
+                "grants_gov_requirement": "Mandatory Attachment",
+                "mapped_section": "program_design",
+                "check_key": "Program_Name",
+                "description": "Core program narrative, goals, logic model, and methodology"
+            },
+            {
+                "form_name": "Key Personnel Credentials / Resumes",
+                "grants_gov_requirement": "Required Attachment",
+                "mapped_section": "staffing_plan",
+                "check_key": "Key_Personnel",
+                "description": "Bios and staffing justifications for key leadership"
+            },
+            {
+                "form_name": "Letters of Commitment / Support",
+                "grants_gov_requirement": "Optional / Highly Recommended",
+                "mapped_section": "sustainability_plan",
+                "check_key": "Partnerships",
+                "description": "Commitment statements from project partner organizations"
+            }
+        ]
+
+        for req in requirements:
+            section_data = self._get_section_data(context, req["mapped_section"])
+            val = section_data.get(req["check_key"])
+            
+            is_present = False
+            if val is not None:
+                if isinstance(val, (list, dict)):
+                    is_present = len(val) > 0
+                else:
+                    is_present = len(str(val).strip()) > 0
+
+            checklist.append({
+                "form_name": req["form_name"],
+                "requirement": req["grants_gov_requirement"],
+                "mapped_section_title": req["mapped_section"].replace("_", " ").title(),
+                "is_present": is_present,
+                "status": "Compliant" if is_present else ("Missing Required Attachment" if req["grants_gov_requirement"] == "Mandatory Form" else "Pending Review"),
+                "description": req["description"]
+            })
+
+        return checklist
+

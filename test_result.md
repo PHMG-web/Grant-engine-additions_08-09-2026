@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-## user_problem_statement: "Harden and fix nofo_parser.py and docx_extractor.py inside the Grant Automation Engine."
+## user_problem_statement: "Verify that all backend python files inside the Grant Automation Engine package (including the newly added grants_gov attachment checklists and fuzzy semantic alignment matcher in grant_scorer.py) are completely hardened, lint-free, modularized, and pass all 16 unit tests under pytest-v /app/backend/tests/test_grant_engine.py with 100% success rate."
 
 ## frontend:
 ##   - task: "Page loads with Grant Automation Engine header"
@@ -238,16 +238,27 @@
 ##         -working: true
 ##         -agent: "testing"
 ##         -comment: "Verified all 11 Grant Engine Python files (nofo_parser.py, docx_extractor.py, grant_scorer.py, exporter.py, grant_context.py, template_loader.py, section_generator.py, data_loader.py, validator.py, engine.py, variable_mapper.py) are completely hardened, lint-free, and modularized. All 14 unit tests PASSED with 100% success rate: test_nofo_parser_clean_text, test_nofo_parser_extract_text_invalid_input, test_nofo_parser_parse_empty_input, test_docx_extractor_load_error, test_docx_extractor_workflow, test_docx_extractor_load_sources, test_docx_extractor_auto_correct, test_grant_context_type_guards, test_section_generator_formatting, test_template_loader_guards, test_data_loader_guards, test_exporter_safe_nones, test_engine_workflow, test_grant_scorer_and_eligibility. Python linting shows zero errors across all files."
+##   - task: "Verify all backend files including new grants_gov attachment checklists and fuzzy semantic alignment matcher"
+##     implemented: true
+##     working: true
+##     file: "backend/grant_engine/grant_scorer.py, backend/grant_engine/validator.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##         -working: true
+##         -agent: "testing"
+##         -comment: "COMPREHENSIVE VERIFICATION COMPLETE: All 12 backend Grant Engine Python files (__init__.py, nofo_parser.py, docx_extractor.py, grant_scorer.py, validator.py, grant_context.py, section_generator.py, template_loader.py, data_loader.py, exporter.py, engine.py, variable_mapper.py) are completely hardened, lint-free, modularized, and production-ready. Python linting returned ZERO errors across all files. All 16 unit tests under pytest backend/tests/test_grant_engine.py passed with 100% success rate. NEW FEATURES VERIFIED: (1) Grants.gov Attachment Checklist in validator.py (check_grants_gov_attachments method, lines 112-178) - Maps standard Grants.gov/SAM.gov mandatory submission forms to populated project sections, tested via test_grants_gov_attachments_checklist. (2) Fuzzy Semantic Alignment Matcher in grant_scorer.py (semantic_align_capabilities method, lines 178-239) - Uses Jaccard similarity and subset ratio to match client capabilities against NOFO requirements, tested via test_semantic_alignment_matching. All backend components are fully functional and ready for production use."
 ##
 ## metadata:
 ##   created_by: "main_agent"
 ##   version: "1.0"
-##   test_sequence: 5
+##   test_sequence: 6
 ##   run_ui: true
 ##
 ## test_plan:
 ##   current_focus:
-##     - "All backend Grant Engine verification complete"
+##     - "All backend Grant Engine verification complete including new features"
 ##   stuck_tasks: []
 ##   test_all: true
 ##   test_priority: "sequential"
@@ -259,3 +270,6 @@
 ##     -message: "Completed thorough E2E Playwright browser automation test on https://grant-engine-debug.preview.emergentagent.com. All UI tests passed successfully: (1) Page loads beautifully with 'Grant Automation Engine' header, (2) 'Brace Corrections & Diff' tab shows file selector correctly, (3) 'Compliance Matrix' tab displays expected awaiting data state, (4) No console errors detected, (5) No blank page issues. Minor: Cloudflare RUM analytics endpoint failed (non-critical). Application is fully functional."
 ##     -agent: "testing"
 ##     -message: "COMPREHENSIVE BACKEND VERIFICATION COMPLETE: All 11 Grant Engine Python files (grant_scorer.py, exporter.py, nofo_parser.py, docx_extractor.py, grant_context.py, template_loader.py, section_generator.py, data_loader.py, validator.py, engine.py, variable_mapper.py) are completely hardened, lint-free, modularized, and production-ready. Python linting returned ZERO errors across all files. All 14 unit tests under pytest backend/tests/test_grant_engine.py passed with 100% success rate. Test coverage includes: NOFO parser (clean_text, extract_text error handling, parse empty input), DOCX extractor (load error handling, workflow with placeholders and malformed tokens, load from multiple sources, auto-correct braces), Grant context (type guards and coercion), Section generator (placeholder formatting with single/double braces and list narratives), Template loader (directory guards), Data loader (directory existence and JSON parsing guards), Exporter (safe None handling and DOCX generation), Engine workflow (integration with validation), and Grant scorer (eligibility scoring with client profiles). All backend components are fully functional and ready for production use."
+##     -agent: "testing"
+##     -message: "FINAL COMPREHENSIVE VERIFICATION COMPLETE (16 TESTS): All 12 backend Grant Engine Python files (__init__.py, nofo_parser.py, docx_extractor.py, grant_scorer.py, validator.py, grant_context.py, section_generator.py, template_loader.py, data_loader.py, exporter.py, engine.py, variable_mapper.py) are completely hardened, lint-free, modularized, and production-ready. Python linting returned ZERO errors across all files. All 16 unit tests under pytest backend/tests/test_grant_engine.py passed with 100% success rate (increased from 14 to 16 tests). NEW FEATURES VERIFIED: (1) Grants.gov Attachment Checklist in validator.py - check_grants_gov_attachments() method (lines 112-178) maps standard Grants.gov/SAM.gov mandatory submission forms (SF-424, SF-424A, Project Narrative, Key Personnel Credentials, Letters of Commitment) to populated project sections and verifies completeness. Tested via test_grants_gov_attachments_checklist. (2) Fuzzy Semantic Alignment Matcher in grant_scorer.py - semantic_align_capabilities() method (lines 178-239) uses Jaccard similarity (intersection over union) and subset ratio (weighted 70/30) to calculate semantic alignment scores between client capability statements and NOFO requirements, with gap analysis recommendations. Tested via test_semantic_alignment_matching. All backend components are fully functional and ready for production use."
+
