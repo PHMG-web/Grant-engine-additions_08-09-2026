@@ -32,9 +32,6 @@ function App() {
           <span className="hover:text-white transition-colors cursor-pointer">Home</span>
           <span className="hover:text-white transition-colors cursor-pointer">About</span>
           <span className="hover:text-white transition-colors cursor-pointer">Services</span>
-          <span className="text-white border-b border-[#FF3B00] pb-1 cursor-pointer flex items-center gap-1">
-            Grant Engine <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-          </span>
           <span className="hover:text-white transition-colors cursor-pointer">Case Studies</span>
           <span className="hover:text-white transition-colors cursor-pointer">Pricing</span>
           <span className="hover:text-white transition-colors cursor-pointer">Resources</span>
