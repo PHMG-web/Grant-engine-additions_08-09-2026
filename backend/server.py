@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 # Import Grant Engine package
 from grant_engine.nofo_parser import NOFOParser, NOFOData
 from grant_engine.docx_extractor import DocxExtractor
+from grant_engine.sam_client import SAMClient
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -329,6 +330,59 @@ async def export_checklist(request: ChecklistExportRequest):
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=checklist_error.xlsx"}
         )
+
+
+# Define Request Models for SAM.gov & Visualizations
+class SAMVerificationRequest(BaseModel):
+    uei: str
+
+class BudgetVisualizationRequest(BaseModel):
+    fte_allocations: Dict[str, float] = Field(default_factory=dict)
+    personnel_costs: Dict[str, float] = Field(default_factory=dict)
+
+
+@api_router.post("/sam/verify")
+async def verify_sam_registration(request: SAMVerificationRequest):
+    """
+    Verify a Unique Entity Identifier (UEI) registration directly on SAM.gov.
+    """
+    client = SAMClient()
+    result = client.verify_uei(request.uei)
+    return result
+
+
+@api_router.post("/budget/visualizations")
+async def generate_budget_visualizations(request: BudgetVisualizationRequest):
+    """
+    Generate structured, ready-to-render data arrays for interactive charts
+    (FTE allocation bar charts, itemized costs pie/donut charts).
+    """
+    # 1. Staffing FTE chart data
+    fte_data = []
+    for role, fte in request.fte_allocations.items():
+        fte_data.append({
+            "name": role,
+            "FTE": fte,
+            "percentage": round(float(fte) * 100.0, 1)
+        })
+
+    # 2. Itemized cost chart data
+    cost_data = []
+    total_cost = sum(request.personnel_costs.values())
+    for category, cost in request.personnel_costs.items():
+        percentage = (cost / total_cost * 100.0) if total_cost > 0.0 else 0.0
+        cost_data.append({
+            "category": category,
+            "cost": cost,
+            "percentage": round(percentage, 1)
+        })
+
+    return {
+        "success": True,
+        "total_budget": total_cost,
+        "fte_chart_data": fte_data,
+        "cost_chart_data": cost_data
+    }
 
 
 # Include the router in the main app

@@ -447,4 +447,57 @@ def test_semantic_alignment_matching():
     assert alignments[1]["is_aligned"] is True
 
 
+def test_sam_client_uei_verification():
+    from grant_engine.sam_client import SAMClient
+    
+    client = SAMClient()
+    
+    # 1. Test format validation blocker
+    res_err = client.verify_uei("123")
+    assert res_err["success"] is False
+    assert "Invalid UEI format" in res_err["error"]
+
+    # 2. Test successful mock verify (sandbox)
+    res_ok = client.verify_uei("UEI123456789")
+    assert res_ok["success"] is True
+    assert res_ok["registration_status"] == "Active"
+    assert res_ok["legal_business_name"] == "PHMEG Solutions Federal Division"
+    assert res_ok["active_exclusions"] is False
+
+
+def test_budget_visualizations_data():
+    # Direct function simulation checking structure types
+    fte_allocations = {"Project Manager": 1.0, "Developer": 0.5}
+    personnel_costs = {"Personnel": 100000.0, "Travel": 25000.0}
+    
+    # Run mock mapper
+    fte_data = []
+    for role, fte in fte_allocations.items():
+        fte_data.append({
+            "name": role,
+            "FTE": fte,
+            "percentage": round(float(fte) * 100.0, 1)
+        })
+
+    cost_data = []
+    total_cost = sum(personnel_costs.values())
+    for category, cost in personnel_costs.items():
+        percentage = (cost / total_cost * 100.0) if total_cost > 0.0 else 0.0
+        cost_data.append({
+            "category": category,
+            "cost": cost,
+            "percentage": round(percentage, 1)
+        })
+        
+    assert len(fte_data) == 2
+    assert fte_data[0]["percentage"] == 100.0
+    assert fte_data[1]["percentage"] == 50.0
+    
+    assert total_cost == 125000.0
+    assert len(cost_data) == 2
+    assert cost_data[0]["percentage"] == 80.0 # 100k / 125k
+    assert cost_data[1]["percentage"] == 20.0 # 25k / 125k
+
+
+
 

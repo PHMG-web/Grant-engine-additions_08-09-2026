@@ -21,6 +21,7 @@ from .docx_extractor import DocxExtractor
 # from .data_loader import DataLoader
 from .nofo_parser import NOFOParser, NOFOData
 from .grant_scorer import GrantScorer, ClientProfile
+from .sam_client import SAMClient
 # from .exporter import Exporter
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     "VariableMapper",
     "GrantScorer",
     "ClientProfile",
+    "SAMClient",
 ]
 
