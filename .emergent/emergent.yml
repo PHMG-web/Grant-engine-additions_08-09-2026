@@ -1,5 +1,6 @@
 {
   "env_image_name": "fastapi_react_mongo_shadcn_base_image_cloud_arm:release-07082026-2",
   "job_id": "44963d93-759b-4773-a4e0-1f4b9168c645",
-  "created_at": "2026-08-10T20:02:32.332941+00:00Z"
+  "created_at": "2026-08-10T20:02:32.332941+00:00Z",
+  "note": "Replaced 'emergent' references with 'PHMEG' in contents where applicable. Filenames/paths preserved to avoid breaking tooling."
 }
