@@ -33,6 +33,13 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
+      env:
+        PYTHONPATH: ${{ github.workspace }}/backend:$PYTHONPATH
       run: |
         conda install pytest
         pytest
+    - name: Auto Format
+      uses: cloudposse/github-action-auto-format@v0.12.0
+      with:
+        format-task: readme
+        workflow-token: ${{ secrets.GITHUB_TOKEN }}
